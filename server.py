@@ -12,8 +12,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-from webdriver_manager.chrome import ChromeDriverManager
-
 import zipfile
 
 from pymongo import MongoClient
@@ -27,6 +25,7 @@ load_dotenv()  # take environment variables from .env.
 app = Flask(__name__)
 CORS(app) 
 
+USE_PROXY = os.getenv('USE_PROXY', 0)
 PROXY_HOST = os.getenv('PROXY_HOST')  # rotating proxy
 PROXY_PORT = os.getenv('PROXY_PORT')
 PROXY_USER = os.getenv('PROXY_USER')
@@ -36,6 +35,7 @@ TWITTER_EMAIL = os.getenv('TWITTER_EMAIL')
 TWITTER_USERNAME = os.getenv('TWITTER_USERNAME')
 TWITTER_PASSWORD = os.getenv('TWITTER_PASSWORD')
 
+USE_PROXY = int(USE_PROXY)
 
 uri = MONGODB_URI
 client = MongoClient(uri)
@@ -43,7 +43,7 @@ db = client.stir_scrape
 twitter_collection = db.twitter_data
 
 # Using Proxy
-def get_proxy_chromedriver(use_proxy=False, user_agent=None):
+def get_proxy_chrome_driver(use_proxy=False, user_agent=None):
     manifest_json = """
     {
         "version": "1.0.0",
@@ -124,9 +124,7 @@ def get_chrome_driver():
     options.add_argument('--no-sandbox')
     options.add_argument('--headless')
     options.add_argument('--disable-dev-shm-usage')
-    # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install())
-    #                           , options=options
-    #                         )
+
     driver = webdriver.Chrome(service=Service(executable_path='./chromedriver')
                               , options=options
                             )
@@ -135,11 +133,17 @@ def get_chrome_driver():
 
 def scrape():
     print("Flow Start!")
-    # driver = get_proxy_chrome_driver(use_proxy=True)
-    driver = get_chrome_driver()
-    wait = WebDriverWait(driver, 10)
+    if USE_PROXY:
+        print("Using Proxy!")
+        driver = get_proxy_chrome_driver(use_proxy=True)
+    else:
+        print("Not Using Proxy")
+        driver = get_chrome_driver()
+
+    wait = WebDriverWait(driver, 20)
 
     print("Getting IP")
+
     driver.get("https://api.ipify.org")
     ip_element = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'pre')))
     ip = ip_element.text
